@@ -20,6 +20,7 @@
 #include "main.h"
 #include "adc.h"
 #include "fdcan.h"
+#include "stm32g4xx_hal.h"
 #include "usart.h"
 #include "rtc.h"
 #include "spi.h"
@@ -28,7 +29,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,7 +51,7 @@
 
 /* USER CODE BEGIN PV */
 uint8_t usbRxBuffer[64];
-uint8_t uartRxBuffer[64];
+uint8_t uartRxBuffer[1];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,11 +62,12 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   // Handle UART to USB CDC
   CDC_Transmit_FS(uartRxBuffer, sizeof(uartRxBuffer));
-}
+  HAL_UART_Receive_IT(huart, uartRxBuffer, 5);
+}*/
 
 /* USER CODE END 0 */
 
@@ -117,6 +119,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    // Handle UART to USB CDC
+    if (HAL_UART_Receive(&huart1, uartRxBuffer, sizeof(uartRxBuffer), HAL_MAX_DELAY) == HAL_OK)
+    {
+        CDC_Transmit_FS(uartRxBuffer, 1);
+    }
   }
   /* USER CODE END 3 */
 }
