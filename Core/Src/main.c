@@ -20,7 +20,7 @@
 #include "main.h"
 #include "adc.h"
 #include "fdcan.h"
-#include "stm32g4xx_hal.h"
+#include "stm32g4xx_hal_gpio.h"
 #include "usart.h"
 #include "rtc.h"
 #include "spi.h"
@@ -57,6 +57,7 @@ uint8_t uartRxBuffer[1];
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+void JumpToBootloader(void);
 
 /* USER CODE END PFP */
 
@@ -68,7 +69,17 @@ void SystemClock_Config(void);
   CDC_Transmit_FS(uartRxBuffer, sizeof(uartRxBuffer));
   HAL_UART_Receive_IT(huart, uartRxBuffer, 5);
 }*/
-
+/**
+  * @brief  GPIO External Interrupt Callback.
+  * @param  GPIO_Pin: GPIO from which interrupt is triggered
+  * @retval None
+  */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if (GPIO_Pin == PB_Pin) {
+    JumpToBootloader();
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -177,7 +188,38 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+  * @brief  Jump to bootloader routine while in RUN mode
+  * @param  none
+  * @retval none
+  */
+void JumpToBootloader(void)
+{
+	void (*SysMemBootJump)(void);
+	volatile uint32_t BootAddr;
 
+	HAL_Delay(100);				// Then wait some delay
+
+	BootAddr = 0x1FFF0000;			// bootloader STM32F401C address
+	__disable_irq();				// Disable all interrupts
+	SysTick->CTRL = 0;				// Disable Systick timer
+	HAL_RCC_DeInit();				// Set the clock to the default state
+
+	// Clear Interrupt Enable Register & Interrupt Pending Register
+	for (uint8_t i=0 ; i < sizeof(NVIC->ICER) / sizeof(NVIC->ICER[0]); i++) {
+		NVIC->ICER[i]=0xFFFFFFFF;
+		NVIC->ICPR[i]=0xFFFFFFFF;
+	}
+	__enable_irq();					// Re-enable all interrupts
+	// Set up the jump to boot loader address + 4
+	SysMemBootJump = (void (*)(void)) (*((uint32_t *) ((BootAddr + 4))));
+	// Set the main stack pointer to the boot loader stack
+	__set_MSP(*(uint32_t *)BootAddr);
+	// Call the function to jump to boot loader location
+	SysMemBootJump();
+	// Jump is done successfully
+	while (1);
+}
 /* USER CODE END 4 */
 
 /**
